@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timber Drying Predictor</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Use Inter font */
+        body { font-family: 'Inter', sans-serif; background-color: #f0f4f9; } /* Slightly bluish background */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* Loading spinner */
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #ffffff;
+            border-radius: 50%; width: 18px; height: 18px;
+            animation: spin 1s linear infinite; display: inline-block; margin-left: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+         /* Result text scrollbar */
+        #result-text::-webkit-scrollbar { width: 6px; }
+        #result-text::-webkit-scrollbar-track { background: #1f2937; } /* gray-800 */
+        #result-text::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px;} /* gray-600 */
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+         <div class="flex justify-between items-center mb-6 px-2">
+              <h1 class="text-3xl font-bold text-gray-800">Timber Drying Predictor <span class="text-xl">🪵</span></h1>
+              <a href="/dashboard" class="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out transform hover:scale-105">
+                  View Drying Dashboard
+              </a>
+         </div>
+
+         <!-- Main Grid Layout -->
+         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+
+            <!-- Left Column: Inputs (Takes 2/5 width) -->
+            <div class="lg:col-span-2">
+                <div class="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-lg shadow-xl text-gray-200 h-full flex flex-col">
+                    <h2 class="text-xl font-semibold mb-6 text-center text-white border-b border-gray-700 pb-3">Input Parameters</h2>
+                    <form id="predict-form" class="space-y-4 flex-grow">
+
+                         <!-- Sensor Status -->
+                         <div id="sensor-status" class="text-center text-xs font-medium p-2 rounded-md border border-gray-600 mb-4 bg-gray-700/50">
+                             Connecting...
+                         </div>
+
+                        <!-- Wood Species (NAYA LIST) -->
+                        <div>
+                            <label for="species" class="block text-sm font-medium mb-1 text-gray-300">Wood Species</label>
+                            <select id="species" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-white">
+                                <!-- Indian Species List -->
+                                <option>Teak (Sagwan)</option>
+                                <option>Sal</option>
+                                <option>Sheesham (Indian Rosewood)</option>
+                                <option>Mango</option>
+                                <option>Deodar (Himalayan Cedar)</option>
+                                <option>Chir Pine</option>
+                                <option>Neem</option>
+                                <option>Babul</option>
+                                <option>Sissoo</option>
+                                <option>Haldu</option>
+                                <option>Indian Laurel (Asna)</option>
+                                <option>Marandi (Red Meranti type)</option>
+                            </select>
+                        </div>
+
+                        <!-- Thickness -->
+                        <div>
+                            <label for="thickness" class="block text-sm font-medium mb-1 text-gray-300">Thickness (cm)</label>
+                            <input type="number" id="thickness" value="5.0" step="0.1" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-white">
+                        </div>
+
+                         <!-- Initial & Target Moisture -->
+                         <div class="grid grid-cols-2 gap-4">
+                              <div>
+                                   <label for="initial_mc" class="block text-sm font-medium mb-1 text-gray-300">Initial Moisture (%)</label>
+                                   <input type="number" id="initial_mc" value="60" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-white">
+                              </div>
+                              <div>
+                                   <label for="target_mc" class="block text-sm font-medium mb-1 text-gray-300">Target Moisture (%)</label>
+                                   <input type="number" id="target_mc" value="12" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-white"> <!-- Default Target Changed -->
+                              </div>
+                         </div>
+
+
+                        <!-- Live Data Display -->
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                             <div>
+                                <label class="block text-sm font-medium text-gray-400">LIVE Temp (°C)</label>
+                                <div id="temp_c_display" class="mt-1 p-2 bg-gray-900 border border-gray-700 rounded-md text-center font-semibold text-white">Loading...</div>
+                             </div>
+                             <div>
+                                <label class="block text-sm font-medium text-gray-400">LIVE Humidity (%)</label>
+                                <div id="humidity_rh_display" class="mt-1 p-2 bg-gray-900 border border-gray-700 rounded-md text-center font-semibold text-white">Loading...</div>
+                             </div>
+                        </div>
+
+                        <!-- Predict Button -->
+                         <div class="mt-auto pt-5"> <!-- Pushes button to bottom -->
+                            <button type="submit" id="predict-btn" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 disabled:opacity-70 disabled:cursor-not-allowed transition duration-150 ease-in-out transform hover:scale-105 active:scale-95">
+                                Predict Drying Time
+                                <div id="loading-spinner" class="loader" style="display: none;"></div>
+                            </button>
+                         </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Results (Takes 3/5 width) -->
+            <div class="lg:col-span-3 space-y-8">
+                 <!-- Prediction Result Card -->
+                 <div class="bg-white p-6 rounded-lg shadow-xl min-h-[320px] flex flex-col items-center">
+                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Prediction Results</h2>
+                     <div id="result-hours" class="text-5xl font-bold text-blue-600 mb-1 leading-tight">- -</div>
+                     <div id="result-days" class="text-gray-500 mb-5 text-base">( ~ days )</div>
+
+                     <div id="result-details" class="w-full mt-2 flex-grow flex flex-col" style="display: none;">
+                         <div id="result-text" class="bg-gray-800 text-gray-200 p-4 rounded-lg whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-auto max-h-52 shadow-inner border border-gray-700 flex-grow">
+                             Waiting for prediction...
+                         </div>
+                         <div id="confidence-score" class="text-center text-xs mt-2 font-medium text-gray-500" style="display: none;"></div>
+                         <button id="save-log-btn" class="w-full mt-4 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition duration-150 ease-in-out" style="display:none;">
+                             Save to Log
+                         </button>
+                         <div id="log-status" class="text-center text-sm mt-2 font-medium"></div>
+                     </div>
+                 </div>
+
+                 <!-- Predicted Curve Card -->
+                 <div id="graph-card" class="bg-white p-6 rounded-lg shadow-xl" style="display: none;">
+                      <h2 class="text-xl font-semibold text-gray-700 mb-4 text-center">Predicted Drying Curve</h2>
+                      <div class="bg-gray-50 p-3 rounded-lg shadow-inner border border-gray-200 h-72">
+                          <canvas id="predictionChart"></canvas>
+                      </div>
+                 </div>
+            </div>
+
+        </div> <!-- End Main Grid -->
+
+        <p class="text-center text-gray-600 mt-10 text-sm">Estimate drying time and get smart recommendations based on AI.</p>
+
+    </div> <!-- End Max Width Container -->
+
+
+    <script>
+        // --- Selectors ---
+        const tempDisplay = document.getElementById('temp_c_display');
+        const humidityDisplay = document.getElementById('humidity_rh_display');
+        const sensorStatusDiv = document.getElementById('sensor-status');
+        const predictBtn = document.getElementById('predict-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const resultDetailsDiv = document.getElementById('result-details');
+        const resultHoursDiv = document.getElementById('result-hours');
+        const resultDaysDiv = document.getElementById('result-days');
+        const resultTextDiv = document.getElementById('result-text');
+        const saveButton = document.getElementById('save-log-btn');
+        const logStatusDiv = document.getElementById('log-status');
+        const graphCard = document.getElementById('graph-card');
+        const predictionChartCanvas = document.getElementById('predictionChart');
+        const confidenceDiv = document.getElementById('confidence-score');
+        let predictionChart = null;
+        let currentLogData = null;
+
+        // --- Fetch sensor data periodically ---
+        async function updateSensorReadings() { /* ... (same code) ... */
+             try { const response = await fetch('/get_sensors'); const data = await response.json(); tempDisplay.textContent = data.temp !== 'N/A' && data.temp !== 'Error' ? parseFloat(data.temp).toFixed(1) : data.temp; humidityDisplay.textContent = data.humidity !== 'N/A' && data.humidity !== 'Error' ? parseFloat(data.humidity).toFixed(1) : data.humidity; if (data.status === 'connected') { sensorStatusDiv.innerHTML = '<span class="text-green-500 mr-1.5 animate-pulse">●</span> Sensors Connected'; sensorStatusDiv.className = 'text-center text-xs font-medium p-2 rounded-md border border-green-200 bg-green-50 text-green-700'; } else if (data.status === 'disconnected') { sensorStatusDiv.innerHTML = '<span class="text-yellow-500 mr-1.5">●</span> Sensors Disconnected'; sensorStatusDiv.className = 'text-center text-xs font-medium p-2 rounded-md border border-yellow-300 bg-yellow-50 text-yellow-700'; } else { sensorStatusDiv.innerHTML = '<span class="text-red-500 mr-1.5">●</span> Sensor Error'; sensorStatusDiv.className = 'text-center text-xs font-medium p-2 rounded-md border border-red-300 bg-red-50 text-red-700'; } } catch (error) { console.error("Error fetching sensor data:", error); tempDisplay.textContent = "Error"; humidityDisplay.textContent = "Error"; sensorStatusDiv.innerHTML = '<span class="text-red-500 mr-1.5">●</span> Server Offline'; sensorStatusDiv.className = 'text-center text-xs font-medium p-2 rounded-md border border-red-300 bg-red-50 text-red-700'; }
+        }
+        setInterval(updateSensorReadings, 3000); document.addEventListener('DOMContentLoaded', updateSensorReadings);
+
+        // --- Prediction form submission ---
+        document.getElementById('predict-form').addEventListener('submit', async function(e) { /* ... (same logic as before) ... */
+            e.preventDefault(); resultDetailsDiv.style.display = 'none'; resultHoursDiv.textContent = '- -'; resultDaysDiv.textContent = '( Calculating... )'; saveButton.style.display = 'none'; graphCard.style.display = 'none'; logStatusDiv.textContent = ''; confidenceDiv.style.display = 'none'; predictBtn.disabled = true; loadingSpinner.style.display = 'inline-block'; if (predictionChart) predictionChart.destroy();
+            const formData = { species: document.getElementById('species').value, thickness: parseFloat(document.getElementById('thickness').value), initial_mc: parseFloat(document.getElementById('initial_mc').value), target_mc: parseFloat(document.getElementById('target_mc').value) };
+            try { const response = await fetch('/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) }); const result = await response.json();
+                if (result.success) { const fullOutput = result.prediction_output; let textOutput = fullOutput; let graphData = null; const graphStartMarker = "GRAPH_DATA_START"; const graphEndMarker = "GRAPH_DATA_END"; const startIndex = fullOutput.indexOf(graphStartMarker); const endIndex = fullOutput.indexOf(graphEndMarker);
+                    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) { const jsonString = fullOutput.substring(startIndex + graphStartMarker.length, endIndex).trim(); try { graphData = JSON.parse(jsonString); textOutput = fullOutput.substring(0, startIndex).trim(); } catch (e) { console.error("Failed to parse graph data:", e); textOutput = fullOutput; } }
+                     let predictedHours = 0; let predictedDays = 0; let confidenceText = '';
+                     try { const hoursMatch = textOutput.match(/PREDICTED DRYING TIME: (\d+\.?\d*)/); const daysMatch = textOutput.match(/\(Approximately (\d+\.?\d*) days\)/); const confidenceMatch = textOutput.match(/Prediction Confidence: (\w+)/); predictedHours = parseFloat(hoursMatch[1]); predictedDays = parseFloat(daysMatch[1]); resultHoursDiv.textContent = `${predictedHours.toFixed(1)} HOURS`; resultDaysDiv.textContent = `( ~ ${predictedDays.toFixed(1)} days )`; if (confidenceMatch && confidenceMatch[1]) { confidenceText = `Confidence: ${confidenceMatch[1]}`; } if (confidenceText) { textOutput = textOutput.replace(/Prediction Confidence: \w+\n?/, '').trim(); } } catch (e) { resultHoursDiv.textContent = 'Error'; resultDaysDiv.textContent = '( Could not parse time )'; }
+                    resultTextDiv.textContent = textOutput; resultDetailsDiv.style.display = 'flex';
+                    if (confidenceText) { confidenceDiv.textContent = confidenceText; confidenceDiv.style.display = 'block'; if (confidenceText.includes('Low')) confidenceDiv.className = 'text-center text-xs mt-2 font-medium text-red-500'; else if (confidenceText.includes('Medium')) confidenceDiv.className = 'text-center text-xs mt-2 font-medium text-yellow-600'; else confidenceDiv.className = 'text-center text-xs mt-2 font-medium text-green-600'; } else { confidenceDiv.style.display = 'none'; }
+                    if (graphData && graphData.time_labels && graphData.moisture_values) { displayPredictionGraph(graphData); graphCard.style.display = 'block'; } else { graphCard.style.display = 'none'; }
+                    currentLogData = { ...formData, temp_c: tempDisplay.textContent, humidity_rh: humidityDisplay.textContent, predicted_hours: predictedHours }; saveButton.style.display = 'block'; saveButton.disabled = false; saveButton.textContent = 'Save to Log'; saveButton.className = 'w-full mt-4 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition duration-150 ease-in-out';
+                } else { resultHoursDiv.textContent = 'Error'; resultDaysDiv.textContent = ''; resultTextDiv.textContent = 'Prediction Error: ' + result.error; resultDetailsDiv.style.display = 'flex'; saveButton.style.display = 'none'; graphCard.style.display = 'none'; confidenceDiv.style.display = 'none'; }
+            } catch (error) { resultHoursDiv.textContent = 'Error'; resultDaysDiv.textContent = ''; resultTextDiv.textContent = 'Network Error: ' + error; resultDetailsDiv.style.display = 'flex'; saveButton.style.display = 'none'; graphCard.style.display = 'none'; confidenceDiv.style.display = 'none'; } finally { predictBtn.disabled = false; loadingSpinner.style.display = 'none'; }
+        });
+
+        // --- Save Log button event listener ---
+        saveButton.addEventListener('click', async function() { /* ... (same code) ... */
+             if (!currentLogData) return; saveButton.disabled = true; saveButton.textContent = 'Saving...'; logStatusDiv.textContent = ''; try { const response = await fetch('/log_prediction', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentLogData) }); const result = await response.json(); if (result.success) { logStatusDiv.textContent = '✅ Logged Successfully!'; logStatusDiv.className = 'text-center text-sm mt-2 font-medium text-green-600'; saveButton.textContent = 'Saved!'; saveButton.className = saveButton.className.replace('bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500', 'bg-blue-600'); } else { logStatusDiv.textContent = `❌ Save Failed: ${result.error}`; logStatusDiv.className = 'text-center text-sm mt-2 font-medium text-red-600'; saveButton.textContent = 'Save Failed!'; saveButton.disabled = false; } } catch (error) { logStatusDiv.textContent = `❌ Network Error during save: ${error}`; logStatusDiv.className = 'text-center text-sm mt-2 font-medium text-red-600'; saveButton.textContent = 'Save Error!'; saveButton.disabled = false; }
+        });
+
+        // --- Function to display the prediction graph ---
+        function displayPredictionGraph(graphData) { /* ... (same code) ... */
+             const chartData = { labels: graphData.time_labels.map(t => `${t}`), datasets: [{ label: 'Moisture (%)', data: graphData.moisture_values, borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.3, fill: true, pointBackgroundColor: 'rgb(59, 130, 246)', pointRadius: 3, pointHoverRadius: 6, pointBorderColor: '#fff', pointHoverBorderColor: '#fff' }] }; if (predictionChart) predictionChart.destroy(); const ctx = predictionChartCanvas.getContext('2d'); predictionChart = new Chart(ctx, { type: 'line', data: chartData, options: { scales: { y: { beginAtZero: false, title: { display: true, text: 'Moisture (%)', color: '#4b5563'}, grid: { color: '#e5e7eb' }, ticks: { color: '#6b7280' } }, x: { title: { display: true, text: 'Drying Time (Hours)', color: '#4b5563'}, grid: { display: false }, ticks: { color: '#6b7280' } } }, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return ` Moisture: ${context.parsed.y}%`; } } } }, interaction: { intersect: false, mode: 'index' }, elements: { line: { borderWidth: 2.5 } } } });
+        }
+    </script>
+
+</body>
+</html>
+

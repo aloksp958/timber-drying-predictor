@@ -1,0 +1,19 @@
+    # Virtual Environment
+    moisture_content/
+    venv/
+    env/
+    .venv/
+
+    # Python cache files
+    __pycache__/
+    *.pyc
+    *.pyo
+    *.pyd
+
+    # CSV Data/Log Files (Optional: Agar aap history ko private rakhna chahte ho)
+    *.csv
+
+    # OS specific files
+    .DS_Store
+    Thumbs.db
+    
